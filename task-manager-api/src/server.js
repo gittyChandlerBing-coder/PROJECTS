@@ -1,6 +1,7 @@
 const express = require('express');
 const dotenv = require('dotenv');
-const connectDB = require('./config/db');
+const cors = require('cors');
+const connectDB = require('./src/config/db');
 
 // Load environment variables
 dotenv.config();
@@ -8,22 +9,19 @@ dotenv.config();
 // Connect to database
 connectDB();
 
-// Initialize Express app
 const app = express();
 
-// Middleware to parse incoming JSON data
-app.use(express.json()); 
+// Middlewares
+app.use(cors());
+app.use(express.json()); // Allows us to accept JSON data in the body
 
-// Basic Health Check Route
-app.get('/api/health', (req, res) => {
-    res.status(200).json({ status: 'success', message: 'Task Manager API is running' });
+// Basic test route
+app.get('/', (req, res) => {
+    res.send('Task Management API is running...');
 });
 
-// We will mount our Task routes here later
-// app.use('/api/tasks', taskRoutes);
-
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-    console.log(`Server is running in development mode on port ${PORT}`);
+    console.log(`Server running in Codespaces on port ${PORT}`);
 });
