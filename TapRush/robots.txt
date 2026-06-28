@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://rushtap.netlify.app/sitemap.xml

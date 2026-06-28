@@ -1,0 +1,21 @@
+# ── Redirect: force canonical domain (avoids duplicate-content penalty)
+[[redirects]]
+  from   = "https://taprush.netlify.app/*"
+  to     = "https://rushtap.netlify.app/:splat"
+  status = 301
+  force  = true
+
+# ── Security + caching headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options        = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy        = "strict-origin-when-cross-origin"
+    Cache-Control          = "public, max-age=3600"
+
+# Cache immutable assets longer (favicon, images)
+[[headers]]
+  for = "/favicon.*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
