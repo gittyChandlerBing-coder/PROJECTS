@@ -1397,6 +1397,38 @@
         .tut-play-speed   { background: #3b82f6; color: #fff; }
         .tut-play-reflex  { background: #ef4444; color: #fff; }
 
+
+        /* ═══ Visitor Counter (bottom of menu) ═══ */
+        .visitor-bar {
+            width: 100%;
+            max-width: 360px;
+            margin: 6px auto 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 7px 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 20px;
+            color: var(--muted);
+            font-size: 0.68rem;
+            letter-spacing: 0.05em;
+        }
+        .visitor-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 5px var(--green);
+            animation: pulse-dot 2s ease-in-out infinite;
+            flex-shrink: 0;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.5; transform: scale(0.75); }
+        }
+        .visitor-count { color: var(--text); font-weight: 700; }
+
         #edit-overlay {
             display: none; position: fixed; inset: 0;
             background: rgba(0,0,0,0.93);
@@ -1424,14 +1456,14 @@
         <div class="onboard-title">Welcome!</div>
         <p class="onboard-sub">Choose your identity — you can always change it later.</p>
 
-        <div class="onboard-av-label">Pick an avatar</div>
-        <div class="av-grid" id="onboard-av-grid"></div>
-
         <div class="onboard-av-label">Your name</div>
         <div class="onboard-name-row">
             <input class="onboard-name-input" id="onboard-name-input" type="text" maxlength="18" placeholder="Enter your name...">
             <button class="dice-btn" onclick="rollRandomName()" title="Random name">🎲</button>
         </div>
+
+        <div class="onboard-av-label" style="margin-top:14px">Pick an avatar</div>
+        <div class="av-grid" id="onboard-av-grid"></div>
 
         <button class="btn-start-game" onclick="saveProfile()">Let's Play! ⚡</button>
     </div>
@@ -1442,14 +1474,14 @@
     <div class="onboard-card">
         <div class="onboard-title" style="font-size:1.2rem;margin-bottom:16px">Edit Profile</div>
 
-        <div class="onboard-av-label">Avatar</div>
-        <div class="av-grid" id="edit-av-grid"></div>
-
         <div class="onboard-av-label">Name</div>
         <div class="onboard-name-row">
             <input class="onboard-name-input" id="edit-name-input" type="text" maxlength="18" placeholder="Your name...">
             <button class="dice-btn" onclick="rollRandomName('edit')" title="Random name">🎲</button>
         </div>
+
+        <div class="onboard-av-label" style="margin-top:14px">Avatar</div>
+        <div class="av-grid" id="edit-av-grid"></div>
 
         <div style="display:flex;gap:8px">
             <button class="btn-menu-from-end" style="flex:1;padding:10px;border:1px solid var(--border);border-radius:10px" onclick="closeEditProfile()">Cancel</button>
@@ -1545,6 +1577,14 @@
     </div>
 
     <div class="footer-credit">Developed by Adi.</div>
+
+    <!-- Visitor counter -->
+    <div class="visitor-bar">
+        <div class="visitor-dot"></div>
+        <span id="visitor-count" class="visitor-count">—</span>
+        <span>visits</span>
+    </div>
+
 </div>
 
 <!-- ══════════ GAME SCREEN ══════════ -->
@@ -1643,6 +1683,12 @@
     </div>
 
     <div class="lb-list-wrap" id="lb-list"></div>
+
+    <!-- Leaderboard footnotes -->
+    <div id="lb-footnote" style="width:100%;max-width:360px;margin:10px auto 0;font-size:0.62rem;color:var(--muted);line-height:1.6;padding:0 4px 20px;text-align:left">
+        <div id="lb-footnote-global" style="display:none">* Max <strong style="color:var(--text)">2 scores per player</strong> shown in Global Top 50.</div>
+        <div id="lb-footnote-weekly" style="display:none">↻ Weekly board shows entries from the last <strong style="color:var(--text)">6 days</strong>. Play again any time to reappear.</div>
+    </div>
 </div>
 
 <!-- ══════════ SHOP SCREEN ══════════ -->
@@ -2490,31 +2536,40 @@ async function saveScore(mode, value) {
     return isPB;
 }
 
-/* ── Fetch global leaderboard from Supabase ── */
+/* ── Fetch global leaderboard — max 2 scores per player ── */
 async function fetchGlobalScores(mode, limit = 50) {
     if (!USE_CLOUD) return null;
     try {
         const order = mode === 2 ? 'score.asc' : 'score.desc';
+        // Fetch a large batch so we can deduplicate client-side (max 2 per player)
         const res = await fetch(
-            `${SUPABASE_URL}/rest/v1/leaderboard?mode=eq.${mode}&order=${order}&limit=${limit}`,
+            `${SUPABASE_URL}/rest/v1/leaderboard?mode=eq.${mode}&order=${order}&limit=500`,
             { headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY } }
         );
         if (!res.ok) return null;
-        return await res.json();
+        const all = await res.json();
+        // Keep at most 2 entries per player_name, return top `limit`
+        const seen = {};
+        const filtered = [];
+        for (const row of all) {
+            const name = row.player_name || 'Anonymous';
+            seen[name] = (seen[name] || 0) + 1;
+            if (seen[name] <= 2) filtered.push(row);
+            if (filtered.length >= limit) break;
+        }
+        return filtered;
     } catch(e) { return null; }
 }
 
-/* ── Fetch weekly leaderboard ── */
+/* ── Fetch weekly leaderboard — rolling 6-day window ── */
 async function fetchWeeklyScores(mode, limit = 10) {
     if (!USE_CLOUD) return null;
     try {
-        // Get start of current week (Monday)
-        const now = new Date();
-        const dayOfWeek = now.getDay() || 7;
-        const monday = new Date(now);
-        monday.setDate(now.getDate() - dayOfWeek + 1);
-        monday.setHours(0, 0, 0, 0);
-        const weekStart = monday.toISOString();
+        // Rolling 6-day window: entries older than 6 days auto-drop off
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 6);
+        cutoff.setHours(0, 0, 0, 0);
+        const weekStart = cutoff.toISOString();
 
         const order = mode === 2 ? 'score.asc' : 'score.desc';
         const res = await fetch(
@@ -2524,6 +2579,34 @@ async function fetchWeeklyScores(mode, limit = 10) {
         if (!res.ok) return null;
         return await res.json();
     } catch(e) { return null; }
+}
+
+/* ── Visitor counter — increments on every page load ── */
+async function trackAndShowVisitors() {
+    if (!USE_CLOUD) return;
+    try {
+        // Atomically increment via RPC (see Supabase setup note below)
+        // Fallback: POST with merge-duplicates (requires visitors table)
+        await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_visitors`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_KEY,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({})
+        }).catch(() => {});
+
+        // Fetch current count and display
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/visitors?id=eq.1&select=count`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            const el = document.getElementById('visitor-count');
+            if (el && data[0]) el.textContent = Number(data[0].count).toLocaleString();
+        }
+    } catch(e) {}
 }
 
 /* ── Navigation: switch mode tab ── */
@@ -2544,15 +2627,22 @@ function switchLbPeriod(period, btn) {
 
 /* ── Show leaderboard (called from showLeaderboard()) ── */
 async function renderLeaderboard() {
-    const wrap  = document.getElementById('lb-list');
+    const wrap    = document.getElementById('lb-list');
     const loading = document.getElementById('lb-loading');
-    const myRow = document.getElementById('lb-my-row');
-    const mode  = activeLbMode;
-    const isTime = mode === 2;
+    const myRow   = document.getElementById('lb-my-row');
+    const fnGlobal = document.getElementById('lb-footnote-global');
+    const fnWeekly = document.getElementById('lb-footnote-weekly');
+    const mode    = activeLbMode;
+    const isTime  = mode === 2;
+    const isGlobal = activeLbPeriod === 'global';
 
     wrap.innerHTML = '';
     loading.style.display = 'block';
     myRow.style.display = 'none';
+
+    // Show correct footnote for current tab
+    if (fnGlobal) fnGlobal.style.display = isGlobal  ? 'block' : 'none';
+    if (fnWeekly) fnWeekly.style.display = !isGlobal ? 'block' : 'none';
 
     // Show player's local best
     const myBest = getLocalBest(mode);
@@ -2659,7 +2749,17 @@ function getProfile() {
 
 function saveProfile(ctx = 'onboard') {
     const nameInput = document.getElementById(ctx === 'edit' ? 'edit-name-input' : 'onboard-name-input');
-    const name = nameInput.value.trim() || RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+    const name = nameInput.value.trim();
+    if (!name) {
+        nameInput.focus();
+        nameInput.style.borderColor = '#ef4444';
+        nameInput.placeholder = 'Please enter a name first!';
+        setTimeout(() => {
+            nameInput.style.borderColor = '';
+            nameInput.placeholder = ctx === 'edit' ? 'Your name...' : 'Enter your name...';
+        }, 1800);
+        return;
+    }
     const selectedEl = document.querySelector(`#${ctx === 'edit' ? 'edit' : 'onboard'}-av-grid .av-option.selected`);
     const avatarId = selectedEl ? parseInt(selectedEl.dataset.avid) : 0;
     localStorage.setItem('tap_profile', JSON.stringify({ name, avatarId }));
@@ -2761,8 +2861,8 @@ function closeEditProfile() {
 
 function checkFirstVisit() {
     if (!getProfile()) {
-        const randomName = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
-        document.getElementById('onboard-name-input').value = randomName;
+        // Leave name blank — user types their own name or taps 🎲 for a random one
+        document.getElementById('onboard-name-input').value = '';
         renderAvatarGrid('onboard-av-grid', 0);
         document.getElementById('onboard-overlay').classList.add('visible');
     } else {
@@ -3147,6 +3247,8 @@ renderDailyChallenge();
 })();
 // Check first visit — needs RANDOM_NAMES, AVATARS, ELITE_AVATARS all declared first
 checkFirstVisit();
+// Track every page load (returning visitors counted too) + show total
+trackAndShowVisitors();
 </script>
 
 
