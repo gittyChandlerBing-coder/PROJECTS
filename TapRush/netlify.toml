@@ -1,20 +1,22 @@
-# ── Redirect: force canonical domain (avoids duplicate-content penalty)
+# ── Redirect: force canonical domain
 [[redirects]]
   from   = "https://taprush.netlify.app/*"
   to     = "https://rushtap.netlify.app/:splat"
   status = 301
   force  = true
 
-# ── Security + caching headers
+# ── Global headers
 [[headers]]
   for = "/*"
   [headers.values]
-    X-Frame-Options        = "SAMEORIGIN"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy        = "strict-origin-when-cross-origin"
     Cache-Control          = "public, max-age=3600"
+    # Allow itch.io to embed your site
+    X-Frame-Options        = "ALLOW-FROM https://itch.io"
+    Content-Security-Policy = "frame-ancestors 'self' https://itch.io https://*.itch.io"
 
-# Cache immutable assets longer (favicon, images)
+# ── Cache favicons/images longer
 [[headers]]
   for = "/favicon.*"
   [headers.values]
