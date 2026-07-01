@@ -1,0 +1,39 @@
+rules_version = '2';
+
+// Data model: a single document per user at /users/{uid}, holding only the
+// "lightweight backend" slice described in the README (settings + a small
+// derived snapshot used to compose reminder emails). Full habit/task history
+// never leaves the browser's Local Storage, so there is nothing else to rule
+// on here.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      // A signed-in user may only ever read or write their own document.
+      // The Admin SDK used by the cron route bypasses these rules entirely
+      // (server credentials are trusted), which is how the daily email job
+      // can read across all users without opening that access to clients.
+      allow read, update, delete: if isOwner(userId);
+
+      // Creation additionally requires the payload's declared fields to be
+      // well-formed, so a client can't write arbitrary/oversized junk into
+      // another shape later code relies on.
+      allow create: if isOwner(userId) && isWellFormedUserDoc();
+    }
+
+    // Everything else is denied by default (no rule matches => no access).
+
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function isWellFormedUserDoc() {
+      let data = request.resource.data;
+      return data.keys().hasAll(['email', 'reminderEnabled', 'reminderTime', 'timezone'])
+        && data.email is string
+        && data.reminderEnabled is bool
+        && data.reminderTime is string
+        && data.timezone is string;
+    }
+  }
+}

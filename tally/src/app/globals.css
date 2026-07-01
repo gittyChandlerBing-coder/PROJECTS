@@ -1,0 +1,160 @@
+@import "tailwindcss";
+
+/*
+  DESIGN SYSTEM — "Ledger"
+  ------------------------
+  Grounding: a habit tracker is, at its root, a paper grid — rows of habits,
+  columns of days, filled in by hand. Rather than dressing this app as a
+  generic SaaS dashboard, the visual language leans into that: hairline
+  rules that mean something (they ARE the grid), tabular monospace numerals
+  for dates/streaks/timers (the way a ledger aligns its columns), and a
+  faint graph-paper texture on the canvas. Ink-on-paper, not paper-on-ink —
+  the brief's own "deep charcoal, off-white, subtle grays" direction, taken
+  literally and structurally rather than just applied as a color swap.
+
+  No externally-fetched fonts: the OS system-font stack is fast, has zero
+  layout shift, and needs no network request — consistent with the brief's
+  explicit "fast-loading, zero-clutter" requirement and this app's
+  offline-first PWA nature.
+*/
+
+@theme {
+  /* ---- Color: paper + ink, one restrained accent ---- */
+  --color-paper: #f2f0ea;
+  --color-surface: #fdfcfa;
+  --color-ink: #1a1916;
+  --color-ink-muted: #726d63;
+  --color-ink-faint: #a19c90;
+  --color-line: #ddd8cd;
+  --color-line-strong: #c7c1b3;
+
+  /* Moss — growth, restraint. Used sparingly: primary actions, completed
+     states, focus rings. Deliberately not the terracotta/amber that shows
+     up by default on almost every "minimal productivity app" brief. */
+  --color-accent: #3f5d42;
+  --color-accent-ink: #f2f0ea;
+  --color-accent-soft: #e3e8dd;
+
+  /* Muted brick — destructive actions only. Desaturated on purpose so it
+     reads as "careful," not alarming. */
+  --color-danger: #9c4632;
+  --color-danger-soft: #f1e2dc;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Menlo,
+    Consolas, monospace;
+
+  --radius-card: 0.5rem;
+  --radius-control: 0.375rem;
+  --radius-cell: 0.1875rem;
+
+  --shadow-card: 0 1px 2px rgba(26, 25, 22, 0.04), 0 1px 1px rgba(26, 25, 22, 0.03);
+  --shadow-raised: 0 4px 16px rgba(26, 25, 22, 0.08), 0 1px 2px rgba(26, 25, 22, 0.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  @theme {
+    --color-paper: #171613;
+    --color-surface: #1f1e1a;
+    --color-ink: #efece4;
+    --color-ink-muted: #a39d90;
+    --color-ink-faint: #726d61;
+    --color-line: #33312a;
+    --color-line-strong: #46433a;
+
+    --color-accent: #7fa07f;
+    --color-accent-ink: #12160f;
+    --color-accent-soft: #26301f;
+
+    --color-danger: #cf8471;
+    --color-danger-soft: #34211b;
+
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.24), 0 1px 1px rgba(0, 0, 0, 0.2);
+    --shadow-raised: 0 4px 20px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  }
+}
+
+html {
+  color-scheme: light dark;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  /* Faint graph-paper texture — the ledger's signature detail. Kept subtle
+     enough to disappear at a glance and only register as "paper." */
+  background-image:
+    linear-gradient(var(--color-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-line) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-attachment: fixed;
+  opacity: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--color-line) 55%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--color-line) 55%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+::selection {
+  background-color: var(--color-accent-soft);
+  color: var(--color-ink);
+}
+
+/* Visible, deliberate focus ring — never suppressed. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Stroke-draw checkmark used by the habit grid cell — see HabitCell. */
+@keyframes tick-draw {
+  from {
+    stroke-dashoffset: 20;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-tick-draw {
+  animation: tick-draw 180ms ease-out forwards;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 200ms ease-out;
+}
